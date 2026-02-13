@@ -1,0 +1,51 @@
+name: Build BooruSama APK
+
+on:
+  workflow_dispatch: # Isso cria um botão manual para iniciar o build
+  push:
+    branches: [ "main", "master" ] # Roda automagicamente se você der push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17' # Versão padrão para Flutter atual
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Dar permissão aos scripts
+        # O Linux do GitHub precisa de permissão explicita para executar .sh
+        run: chmod +x gen.sh build.sh
+
+      - name: Instalar Dependências
+        run: flutter pub get
+
+      - name: Gerar Código (Boilerplate)
+        # O comando ./gen.sh do print
+        run: ./gen.sh
+
+      - name: Buildar o APK
+        # O comando ./build.sh do print.
+        # OBS: Se falhar por falta de chave de assinatura (keystore),
+        # trocaremos por "flutter build apk --debug".
+        run: ./build.sh apk --flavor prod
+
+      - name: Upload do APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: boorusama-apk
+          path: build/app/outputs/flutter-apk/app-prod-release.apk
+          # Se o build acima gerar outro nome, o log vai avisar, mas geralmente é esse padrão.
+
