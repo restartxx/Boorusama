@@ -25,9 +25,6 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Dar permissão aos scripts
-        run: chmod +x gen.sh
-
       - name: Instalar Dependências
         run: flutter pub get
 
@@ -37,30 +34,30 @@ jobs:
           echo "REVENUECAT_APPLE_API_KEY=fake_key" >> .env
           echo "SENTRY_DSN=https://fake@sentry.io/123" >> .env
 
-      # --- NOVO PASSO AQUI ---
-      - name: Corrigir Ambiente Android (local.properties)
+      - name: Hack do NDK e Android
         run: |
-          # Descobre onde o Flutter está instalado no Linux do GitHub
-          FLUTTER_PATH=$(dirname $(dirname $(which flutter)))
-          echo "Flutter encontrado em: $FLUTTER_PATH"
+          # 1. Forçar a versão do NDK no build.gradle
+          # Isso resolve o erro: "jni requires Android NDK 28.2.13676358"
+          sed -i 's/android {/android { ndkVersion "28.2.13676358"/' android/app/build.gradle
           
-          # Cria o arquivo que o plugin FVP exige
+          # 2. Corrigir local.properties para o plugin FVP
+          FLUTTER_PATH=$(dirname $(dirname $(which flutter)))
           echo "flutter.sdk=$FLUTTER_PATH" > android/local.properties
           echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
           
-          # Hack extra: O FVP procura um arquivo 'version' na raiz do SDK.
-          # Se não existir (algumas versões CI não tem), criamos um fake.
+          # 3. Hack da versão
           if [ ! -f "$FLUTTER_PATH/version" ]; then
-            echo "Criando arquivo de versão dummy..."
             echo "3.22.0" > "$FLUTTER_PATH/version"
           fi
-      # -----------------------
 
       - name: Gerar Código
-        run: ./gen.sh
+        run: |
+          chmod +x gen.sh
+          ./gen.sh
 
       - name: Buildar o APK (Debug)
-        run: flutter build apk --debug
+        # --verbose ajuda a ver onde trava se demorar muito
+        run: flutter build apk --debug --verbose
 
       - name: Upload do APK
         uses: actions/upload-artifact@v4
