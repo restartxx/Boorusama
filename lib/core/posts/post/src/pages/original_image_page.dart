@@ -255,6 +255,40 @@ class __ImageViewerState extends ConsumerState<_ImageViewer> {
       imageHeight: widget.contentSize?.height,
       imageWidth: widget.contentSize?.width,
       forceFill: true,
+      
+      // IMPLEMENTAÇÃO DO ZOOM "AVES STYLE"
+      onDoubleTap: (ExtendedImageGestureState state) {
+        final pointerDownPosition = state.pointerDownPosition;
+        final double? begin = state.gestureDetails?.totalScale;
+        double end;
+
+        // Pega as dimensões da tela e da imagem atual
+        final Rect? layoutRect = state.gestureDetails?.layoutRect;
+        final Size screenSize = MediaQuery.of(context).size;
+
+        if (layoutRect != null && begin != null) {
+          // Calcula a escala necessária para a imagem cobrir a altura da tela
+          // targetScale = currentScale * (screenHeight / currentImageHeight)
+          final double fitHeightScale = begin * (screenSize.height / layoutRect.height);
+
+          // Lógica de Toggle:
+          // Se o zoom atual já estiver muito próximo do "Fit Height" (margem de 0.1),
+          // então o duplo clique deve resetar para 1.0 (zoom inicial).
+          // Caso contrário, vai para o "Fit Height".
+          if ((begin - fitHeightScale).abs() < 0.1) {
+            end = 1.0; 
+          } else {
+            end = fitHeightScale;
+          }
+
+          // Executa a animação do zoom
+          state.handleDoubleTap(
+            scale: end,
+            doubleTapPosition: pointerDownPosition,
+          );
+        }
+      },
+      
       placeholderWidget: ValueListenableBuilder(
         valueListenable: _controller.progress,
         builder: (context, progress, child) {
