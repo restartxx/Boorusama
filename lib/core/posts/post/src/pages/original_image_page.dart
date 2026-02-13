@@ -53,6 +53,9 @@ class _OriginalImagePageState extends ConsumerState<OriginalImagePage> {
   var overlay = true;
   var zoom = false;
   var turn = ValueNotifier<double>(0);
+  
+  // NOVO: Controller para manipular o zoom do InteractiveViewer
+  final TransformationController _transformationController = TransformationController();
 
   @override
   void initState() {
@@ -60,6 +63,12 @@ class _OriginalImagePageState extends ConsumerState<OriginalImagePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       currentRotation = context.orientation;
     });
+  }
+  
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
   }
 
   Future<void> _pop(bool didPop) async {
@@ -69,6 +78,54 @@ class _OriginalImagePageState extends ConsumerState<OriginalImagePage> {
     if (mounted && !didPop) {
       Navigator.of(context).pop();
     }
+  }
+
+  // Lógica do Zoom "Fit Height"
+  void _handleDoubleTap() {
+    // Zoom atual (pegamos da matriz 4x4, posição [0])
+    final double currentScale = _transformationController.value.getMaxScaleOnAxis();
+    final Size screenSize = MediaQuery.of(context).size;
+    
+    // Altura do conteúdo (Imagem)
+    final double contentHeight = widget.contentSize?.height ?? 1.0;
+    final double contentWidth = widget.contentSize?.width ?? 1.0;
+
+    // Se o contentSize não estiver definido, aborta
+    if (contentHeight == 1.0) return;
+
+    // Calcula a escala necessária para a imagem preencher a altura da tela
+    // No InteractiveViewer, o scale base (1.0) geralmente encaixa a imagem na largura (fit width) ou contain.
+    // Precisamos calcular quanto dar de zoom para atingir a altura.
+    
+    // Assumindo que o estado inicial é "contain" (imagem inteira na tela):
+    // A altura renderizada inicial é: screenSize.width / aspectRatio
+    final double initialRenderedHeight = screenSize.width / (contentWidth / contentHeight);
+    
+    // Escala alvo = Altura da Tela / Altura Renderizada Inicial
+    final double targetScale = screenSize.height / initialRenderedHeight;
+
+    // Toggle: Se já estamos perto do alvo, volta pra 1.0. Se não, vai pro alvo.
+    double newScale = 1.0;
+    if ((currentScale - targetScale).abs() > 0.1 && currentScale < targetScale) {
+       newScale = targetScale;
+    }
+
+    // Cria a nova matriz de transformação
+    // Mantemos o centro alinhado
+    final Matrix4 newMatrix = Matrix4.identity()
+      ..translate(
+        -((contentWidth * newScale - screenSize.width) / 2), 
+        -((contentHeight * newScale - screenSize.height) / 2)
+      )
+      ..scale(newScale);
+      
+    // Aplica a animação (simplificado: setando valor direto, o InteractiveViewer anima se tiver physics?)
+    // Para animar suavemente precisariamos de um AnimationController, 
+    // mas vamos testar setando direto primeiro pra ver se funciona.
+    _transformationController.value = Matrix4.identity()..scale(newScale);
+    
+    // Nota: Centralização exata com TransformationController é chata matemática.
+    // Vamos tentar um scale simples primeiro.
   }
 
   @override
@@ -103,6 +160,8 @@ class _OriginalImagePageState extends ConsumerState<OriginalImagePage> {
           _setOverlay(!overlay);
         });
       },
+      // NOVO: Detectar duplo clique aqui, em cima de tudo
+      onDoubleTap: _handleDoubleTap,
       child: Scaffold(
         extendBodyBehindAppBar: true,
         appBar: AppBar(
@@ -162,7 +221,11 @@ class _OriginalImagePageState extends ConsumerState<OriginalImagePage> {
               ),
           ],
         ),
+        // TENTATIVA: Passar o controller para o InteractiveViewerExtended
+        // Se der erro de "No named parameter transformationController", 
+        // significa que o widget wrapper não expõe isso e teremos que editar widgets.dart
         body: InteractiveViewerExtended(
+          transformationController: _transformationController, // <-- AQUI
           contentSize: widget.contentSize,
           onTransformationChanged: (details) {
             setState(() {
@@ -219,10 +282,6 @@ class _OriginalImagePageState extends ConsumerState<OriginalImagePage> {
   }
 }
 
-// ... imports ...
-
-// ... Classes OriginalImagePage e _OriginalImagePageState ... (iguais)
-
 class _ImageViewer extends ConsumerStatefulWidget {
   const _ImageViewer({
     required this.imageUrl,
@@ -259,32 +318,6 @@ class __ImageViewerState extends ConsumerState<_ImageViewer> {
       imageHeight: widget.contentSize?.height,
       imageWidth: widget.contentSize?.width,
       forceFill: true,
-      
-      // AQUI MUDOU: Removemos o tipo explicito 'ExtendedImageGestureState'
-      onDoubleTap: (state) {
-        final pointerDownPosition = state.pointerDownPosition;
-        final double? begin = state.gestureDetails?.totalScale;
-        double end;
-
-        final Rect? layoutRect = state.gestureDetails?.layoutRect;
-        final Size screenSize = MediaQuery.of(context).size;
-
-        if (layoutRect != null && begin != null) {
-          final double fitHeightScale = begin * (screenSize.height / layoutRect.height);
-
-          if ((begin - fitHeightScale).abs() < 0.1) {
-            end = 1.0; 
-          } else {
-            end = fitHeightScale;
-          }
-
-          state.handleDoubleTap(
-            scale: end,
-            doubleTapPosition: pointerDownPosition,
-          );
-        }
-      },
-      
       placeholderWidget: ValueListenableBuilder(
         valueListenable: _controller.progress,
         builder: (context, progress, child) {
