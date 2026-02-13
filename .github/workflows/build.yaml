@@ -31,18 +31,35 @@ jobs:
       - name: Instalar Dependências
         run: flutter pub get
 
-      - name: Criar .env falso (Enganando o validador)
+      - name: Criar .env falso
         run: |
           echo "REVENUECAT_GOOGLE_API_KEY=fake_key" >> .env
           echo "REVENUECAT_APPLE_API_KEY=fake_key" >> .env
           echo "SENTRY_DSN=https://fake@sentry.io/123" >> .env
 
+      # --- NOVO PASSO AQUI ---
+      - name: Corrigir Ambiente Android (local.properties)
+        run: |
+          # Descobre onde o Flutter está instalado no Linux do GitHub
+          FLUTTER_PATH=$(dirname $(dirname $(which flutter)))
+          echo "Flutter encontrado em: $FLUTTER_PATH"
+          
+          # Cria o arquivo que o plugin FVP exige
+          echo "flutter.sdk=$FLUTTER_PATH" > android/local.properties
+          echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
+          
+          # Hack extra: O FVP procura um arquivo 'version' na raiz do SDK.
+          # Se não existir (algumas versões CI não tem), criamos um fake.
+          if [ ! -f "$FLUTTER_PATH/version" ]; then
+            echo "Criando arquivo de versão dummy..."
+            echo "3.22.0" > "$FLUTTER_PATH/version"
+          fi
+      # -----------------------
+
       - name: Gerar Código
         run: ./gen.sh
 
       - name: Buildar o APK (Debug)
-        # Usamos --debug para pular a necessidade de chave de assinatura (Keystore)
-        # E usamos o comando direto do flutter para evitar scripts restritivos
         run: flutter build apk --debug
 
       - name: Upload do APK
