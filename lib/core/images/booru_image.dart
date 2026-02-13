@@ -35,7 +35,6 @@ class BooruImage extends ConsumerWidget {
     this.placeholderWidget,
     this.controller,
     this.imageCacheManager,
-    this.onDoubleTap, // Modificado
   });
 
   final BooruConfigAuth config;
@@ -52,9 +51,6 @@ class BooruImage extends ConsumerWidget {
   final Widget? placeholderWidget;
   final ExtendedImageController? controller;
   final ImageCacheManager? imageCacheManager;
-  
-  // HACK: Usamos 'dynamic' aqui para evitar erro de importação do tipo DoubleTap
-  final void Function(dynamic)? onDoubleTap; 
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -90,7 +86,6 @@ class BooruImage extends ConsumerWidget {
       controller: controller,
       androidVersion: deviceInfo.androidDeviceInfo?.version.sdkInt,
       imageCacheManager: imageCacheManager ?? fallbackCacheManager,
-      onDoubleTap: onDoubleTap, 
     );
   }
 }
@@ -116,7 +111,6 @@ class BooruRawImage extends StatelessWidget {
     this.controller,
     this.androidVersion,
     this.imageCacheManager,
-    this.onDoubleTap, // Modificado
   });
 
   final Dio dio;
@@ -137,9 +131,6 @@ class BooruRawImage extends StatelessWidget {
   final ExtendedImageController? controller;
   final int? androidVersion;
   final ImageCacheManager? imageCacheManager;
-  
-  // HACK: Tipo dinâmico para passar no compilador
-  final void Function(dynamic)? onDoubleTap;
 
   @override
   Widget build(BuildContext context) {
@@ -182,8 +173,6 @@ class BooruRawImage extends StatelessWidget {
                   platform: Theme.of(context).platform,
                   androidVersion: androidVersion,
                   cacheManager: imageCacheManager,
-                  // O cast aqui força o Dart a aceitar nossa função dinâmica
-                  onDoubleTap: onDoubleTap as void Function(ExtendedImageGestureState)?, 
                   placeholderWidget:
                       placeholderWidget ??
                       placeholderUrl.toOption().fold(
@@ -227,7 +216,7 @@ class BooruRawImage extends StatelessWidget {
     );
   }
 }
-// ... O resto do arquivo continua igual (FetchStrategyBuilder para baixo) ...
+
 const _fetchStrategy = FetchStrategyBuilder(
   initialPauseBetweenRetries: Duration(milliseconds: 500),
   silent: true,
