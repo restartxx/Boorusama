@@ -35,7 +35,7 @@ class BooruImage extends ConsumerWidget {
     this.placeholderWidget,
     this.controller,
     this.imageCacheManager,
-    this.onDoubleTap, // Adicionado
+    this.onDoubleTap, // Modificado
   });
 
   final BooruConfigAuth config;
@@ -52,7 +52,9 @@ class BooruImage extends ConsumerWidget {
   final Widget? placeholderWidget;
   final ExtendedImageController? controller;
   final ImageCacheManager? imageCacheManager;
-  final DoubleTap? onDoubleTap; // Adicionado
+  
+  // HACK: Usamos 'dynamic' aqui para evitar erro de importação do tipo DoubleTap
+  final void Function(dynamic)? onDoubleTap; 
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -88,7 +90,7 @@ class BooruImage extends ConsumerWidget {
       controller: controller,
       androidVersion: deviceInfo.androidDeviceInfo?.version.sdkInt,
       imageCacheManager: imageCacheManager ?? fallbackCacheManager,
-      onDoubleTap: onDoubleTap, // Repassando o callback
+      onDoubleTap: onDoubleTap, 
     );
   }
 }
@@ -114,7 +116,7 @@ class BooruRawImage extends StatelessWidget {
     this.controller,
     this.androidVersion,
     this.imageCacheManager,
-    this.onDoubleTap, // Adicionado
+    this.onDoubleTap, // Modificado
   });
 
   final Dio dio;
@@ -135,7 +137,9 @@ class BooruRawImage extends StatelessWidget {
   final ExtendedImageController? controller;
   final int? androidVersion;
   final ImageCacheManager? imageCacheManager;
-  final DoubleTap? onDoubleTap; // Adicionado
+  
+  // HACK: Tipo dinâmico para passar no compilador
+  final void Function(dynamic)? onDoubleTap;
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +155,6 @@ class BooruRawImage extends StatelessWidget {
           final height = constraints.maxHeight.roundToDouble();
           final fit =
               this.fit ??
-              // If the image is larger than the layout, just fill it to prevent distortion
               (forceFill &&
                       _shouldForceFill(
                         constraints.biggest,
@@ -159,7 +162,6 @@ class BooruRawImage extends StatelessWidget {
                         imageHeight,
                       )
                   ? BoxFit.fill
-                  // Cover is for the standard grid that crops the image to fit the aspect ratio
                   : forceCover
                   ? BoxFit.cover
                   : BoxFit.contain);
@@ -180,7 +182,8 @@ class BooruRawImage extends StatelessWidget {
                   platform: Theme.of(context).platform,
                   androidVersion: androidVersion,
                   cacheManager: imageCacheManager,
-                  onDoubleTap: onDoubleTap, // Conectado aqui!
+                  // O cast aqui força o Dart a aceitar nossa função dinâmica
+                  onDoubleTap: onDoubleTap as void Function(ExtendedImageGestureState)?, 
                   placeholderWidget:
                       placeholderWidget ??
                       placeholderUrl.toOption().fold(
@@ -209,7 +212,6 @@ class BooruRawImage extends StatelessWidget {
                                     platform: Theme.of(context).platform,
                                     androidVersion: androidVersion,
                                     cacheManager: imageCacheManager,
-                                    // Não precisa de onDoubleTap no placeholder
                                   )
                                 : imagePlaceHolder;
                           },
@@ -225,10 +227,9 @@ class BooruRawImage extends StatelessWidget {
     );
   }
 }
-
+// ... O resto do arquivo continua igual (FetchStrategyBuilder para baixo) ...
 const _fetchStrategy = FetchStrategyBuilder(
   initialPauseBetweenRetries: Duration(milliseconds: 500),
-  // Nothing we can do about it, just ignore the error to avoid spamming the logs
   silent: true,
 );
 
@@ -239,18 +240,10 @@ bool _shouldLoadPlaceholderUrl({
   required bool forceLoadPlaceholder,
 }) {
   if (forceLoadPlaceholder) return true;
-
   final placeholder = placeholderUrl;
-
-  // Small image
   if (!isLargeImage) return false;
-
-  // Invalid placeholder URL
   if (placeholder.isEmpty) return false;
-
-  // Same URL, no point in loading the placeholder
   if (placeholder == imageUrl) return false;
-
   return true;
 }
 
@@ -260,10 +253,8 @@ bool _shouldForceFill(
   double? imageHeight,
 ) {
   if (imageWidth == null || imageHeight == null) return false;
-
   if (containerSize.height < imageHeight) return true;
   if (containerSize.width < imageWidth) return true;
-
   return false;
 }
 
